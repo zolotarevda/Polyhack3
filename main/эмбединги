@@ -1,0 +1,53 @@
+from transformers import AutoTokenizer, AutoModel
+import torch
+import torch.nn.functional as F
+
+
+# Загрузка модели и токенизатора
+model_name = "bert-base-multilingual-cased"  # или другая модель BERT
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModel.from_pretrained(model_name)
+
+
+def get_embedding(text, model, tokenizer):
+    # Токенизация текста
+    inputs = tokenizer(text, return_tensors="pt", padding=True, truncation=True, max_length=512)
+
+    # Получение эмбедингов
+    with torch.no_grad():
+        outputs = model(**inputs)
+
+    # Усреднение эмбедингов токенов для получения эмбединга всего текста
+    embeddings = outputs.last_hidden_state.mean(dim=1)
+    return embeddings
+
+
+def compare_embeddings(emb1, emb2):
+    return F.cosine_similarity(emb1, emb2).item()
+
+
+book1 = str(open("", 'r', encoding='UTF-8'))
+book2 = str(open("", 'r', encoding='UTF-8'))
+
+
+def get_book_embedding(text, model, tokenizer, chunk_size=500):
+    # Разбиваем текст на части
+    words = text.split()
+    chunks = [' '.join(words[i:i + chunk_size]) for i in range(0, len(words), chunk_size)]
+
+    # Получаем эмбединги для каждой части
+    chunk_embeddings = []
+    for chunk in chunks:
+        emb = get_embedding(chunk, model, tokenizer)
+        chunk_embeddings.append(emb)
+
+    # Усредняем все эмбединги частей
+    book_embedding = torch.mean(torch.cat(chunk_embeddings), dim=0, keepdim=True)
+    return book_embedding
+
+
+# Использование
+emb1 = get_book_embedding(book1, model, tokenizer)
+emb2 = get_book_embedding(book2, model, tokenizer)
+similarity_score = compare_embeddings(emb1, emb2)
+print(f"Косинусное сходство между книгами: {similarity_score:.4f}")
