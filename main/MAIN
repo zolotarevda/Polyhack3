@@ -1,0 +1,58 @@
+import pandas as pd
+from datasets import load_dataset
+import asyncio
+import logging
+from aiogram import Bot, Dispatcher, types
+from aiogram.filters.command import CommandStart, Command
+from aiogram.types import ReplyKeyboardRemove, \
+    ReplyKeyboardMarkup, KeyboardButton, \
+    InlineKeyboardMarkup, InlineKeyboardButton
+
+
+logging.basicConfig(level=logging.INFO)
+bot = Bot(token="7642821483:AAG4s2igu88W-lLmLjJ3iMqE_sLuAohSwFc")
+dp = Dispatcher()
+
+books = pd.read_parquet('/home/k011-it-023@1561.ru/PycharmProjects/PythonProject/books.parquet', 'r')
+
+def normailize(text: str):
+    text = text.lower().strip()
+    text = re.sub(r'\s+', ' ', text)
+    text = re.sub(r'[\w\s]', '', text)
+    return text
+
+def find_best_match(user_input: str, book_list: list, cutoff: int = 0.6):
+    from diflib import get_close_matches
+    normalized_input = normailize(user_input)
+    mathes = get_close_matches(normalized_input, book_list, n=1, cutoff=cutoff)
+    return mathes[0] if mathes else None
+
+@dp.message(Command("start"))
+async def cmd_start(message: types.Message):
+    await message.answer("Введите назавание книги, и я предложу тебе несколько других книг этого автора.")
+
+@dp.message()
+async def recommender(message:types.Message):
+    user_input = message.types.Message
+    book_titles = [normailize(book) for book in books["Title"]]
+    best_match = find_best_match(user_input, book_titles)
+    if best_match:
+        author = books.loc[book_titles.index(best_match), "Author"]
+        recommendetions = books[books["Author"] == author]["Title"].unique()
+        recommendetions = [book for book in recommendetions if normalize(book) != best_match]
+        if recommendetions:
+            response = (f"Найдена книга -  {best_match} от автора {author}.\n"
+            f"Другие книги автора:\n" + "\n".join(recommendetions)
+            )
+        else:
+            response = f"Найдена книга -  {best_match} от автора {author}, но других книг от автора нету.\n"
+    else:
+        response = f"Книга не найдена. Попробуйте ещё раз!"
+
+    await message.answer(response)
+
+async def main():
+    await dp.start_polling(bot)
+
+if __name__ == "__main__":
+    asyncio.run(main())
