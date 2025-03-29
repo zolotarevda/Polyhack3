@@ -1,0 +1,47 @@
+import os
+import pandas as pd
+
+# Путь к папке books
+books_dir = "books"  # Можно указать абсолютный путь, например: "C:/books"
+
+# Создаем списки для данных
+titles = []
+authors = []
+texts = []
+
+# Проходим по папкам авторов
+for author in os.listdir(books_dir):
+    author_dir = os.path.join(books_dir, author)
+
+    if os.path.isdir(author_dir):
+        # Проходим по файлам в папке автора
+        for filename in os.listdir(author_dir):
+            file_path = os.path.join(author_dir, filename)
+
+            # Читаем текст файла (с обработкой ошибок кодировки)
+            try:
+                with open(file_path, 'r', encoding='utf-8') as file:
+                    text = file.read()
+            except UnicodeDecodeError:
+                try:
+                    with open(file_path, 'r', encoding='cp1251') as file:
+                        text = file.read()
+                except Exception as e:
+                    print(f"Ошибка чтения {file_path}: {e}")
+                    text = None  # или можно пропустить файл
+
+            # Добавляем данные в списки
+            title = os.path.splitext(filename)[0]  # Убираем расширение (.txt, .pdf и т. д.)
+            titles.append(title)
+            authors.append(author)
+            texts.append(text)
+
+# Создаем DataFrame
+df = pd.DataFrame({
+    'название произведения': titles,
+    'автор': authors,
+    'текст': texts
+})
+
+# Выводим первые 5 строк
+print(df.head())
