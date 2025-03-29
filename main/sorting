@@ -1,0 +1,35 @@
+import torch.nn.functional as F
+import torch
+import pandas as pd
+
+def compare_embeddings(emb1, emb2):
+    # Конвертируем numpy массивы в тензоры PyTorch при необходимости
+    if not isinstance(emb1, torch.Tensor):
+        emb1 = torch.tensor(emb1)
+    if not isinstance(emb2, torch.Tensor):
+        emb2 = torch.tensor(emb2)
+    # Добавляем размерность batch (cosine_similarity ожидает минимум 2D тензоры)
+    emb1 = emb1.unsqueeze(0) if emb1.dim() == 1 else emb1
+    emb2 = emb2.unsqueeze(0) if emb2.dim() == 1 else emb2
+    return F.cosine_similarity(emb1, emb2).item()
+
+def find_similar_books(book_title, books_df, top_n=10):
+    # Находим запись с указанной книгой
+    book_record = books_df[books_df['title'] == book_title]
+    
+    if book_record.empty:
+        raise ValueError(f"Книга с названием '{book_title}' не найдена в датафрейме")
+    
+    # Получаем эмбеддинг целевой книги
+    target_embedding = book_record.iloc[0]['embedding']
+    
+    # Вычисляем косинусную схожесть для всех книг
+    books_df['similarity'] = books_df['embedding'].apply(
+        lambda x: compare_embeddings(target_embedding, x)
+    )
+    
+    # Исключаем саму целевую книгу из результатов
+    similar_books = books_df[books_df['title'] != book_title]
+    
+    # Сортируем по убыванию схожести и возвращаем top_n результатов
+    return similar_books.sort_values('similarity', ascending=False).head(top_n)
